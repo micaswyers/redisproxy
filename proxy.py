@@ -135,7 +135,7 @@ def open_connection(host=None, port=None, timeout=30):
     return my_socket
 
 
-def run_proxy(host_addr, ttl, capacity):
+def run_server(host_addr, ttl, capacity):
     redis_proxy = RedisProxy(host_addr=host_addr, ttl=ttl, capacity=capacity)
 
     client_socket = open_connection(host='', port=5555)
@@ -154,15 +154,20 @@ def run_proxy(host_addr, ttl, capacity):
             # New client connection, creates new client socket
             if src == client_socket:
                 sock, addr = client_socket.accept()
-                sock.sendall("Connected to RedisProxy\n\r")
+                sock.sendall("Connected to RedisProxy\nYou can send GET {key} commands to the proxy\n")
                 SOCKET_LIST.append(sock)
             # Input from a client connection that we've already seen
             else:
                 data = src.recv(4096).strip()
                 if data:
-                    ret_val = redis_proxy.get(data)
-                    ret_val = ret_val + "\n\r"
-                    src.sendall(ret_val.encode('utf-8'))
+                    data = data.split()
+                    if len(data) != 2 or data[0] != "GET":
+                        src.sendall("Please use Redis 'GET key' command format\n\r")
+                        continue
+                    else:
+                        ret_val = redis_proxy.get(data[1])
+                        ret_val = ret_val + "\n\r"
+                        src.sendall(ret_val.encode('utf-8'))
                 else:
                     if src in SOCKET_LIST:
                         SOCKET_LIST.remove(src)
@@ -207,4 +212,4 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    run_proxy(host_addr=args.addr, ttl=args.ttl, capacity=args.capacity)
+    run_server(host_addr=args.addr, ttl=args.ttl, capacity=args.capacity)
