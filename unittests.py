@@ -2,7 +2,7 @@ import time
 import mock
 import unittest
 
-from redisproxy import (
+from proxy import (
     LastUpdatedDict,
     LRUCache,
     RedisProxy,
@@ -52,7 +52,7 @@ class TestLRUCache(unittest.TestCase):
         )
 
 
-    @mock.patch('redisproxy.datetime')
+    @mock.patch('proxy.datetime')
     def test_timestamp_added_with_set(self, dt_mock):
         """Test that correct datetime is added for inserted data"""
 
@@ -89,17 +89,45 @@ class TestLRUCache(unittest.TestCase):
 
 class RedisProxyTests(unittest.TestCase):
 
+    def setUp(self):
+        self.testproxy = RedisProxy(capacity=5, ttl=7200)
+        self.testproxy.cache.set('foo', 'bar')
+
     def test_cached_val_returned(self):
         """Test that a value in the proxy's cache is returned, w/o calling Redis"""
-        pass
+
+        socket_mock = mock.MagicMock()
+        socket_mock.recv.return_value = "$3\r\nbar\r\n"
+        self.testproxy.redis_socket = socket_mock
+
+        cached_val = self.testproxy.get('foo')
+
+        self.assertEqual(cached_val, 'bar')
+        socket_mock.sendall.assert_not_called()
+        socket_mock.recv.assert_not_called()
+
 
     def test_nil_string_returned_from_Redis(self):
         """Test that a nil string from Redis cause proxy to return None"""
-        pass
+
+        socket_mock = mock.MagicMock()
+        socket_mock.recv.return_value = "$-1\r\n"
+        self.testproxy.redis_socket = socket_mock
+
+        self.assertIsNone(self.testproxy.get('blarf'))
+        socket_mock.sendall.assert_called()
+        socket_mock.recv.assert_called()
+
 
     def test_cache_new_data(self):
         """Test that data fetched from Redis is put into the proxy's cache"""
-        pass
+
+        socket_mock = mock.MagicMock()
+        socket_mock.recv.return_value = "$5\r\nblarf\r\n"
+        self.testproxy.redis_socket = socket_mock
+
+        ret_val = self.testproxy.get('baz')
+        self.assertEqual(ret_val, self.testproxy.cache.get('baz'))
 
 
 if __name__ == "__main__":
