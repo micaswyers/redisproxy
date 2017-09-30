@@ -14,7 +14,12 @@ class LastUpdatedDict(OrderedDict):
 class LRUCache(object):
     """Least Recently Used Cache supporting eviction based on capacity & TTL"""
 
-    def __init__(self, capacity=100, ttl=7200):
+    def __init__(self, capacity=None, ttl=None):
+
+        if not capacity:
+            raise TypeError("Capacity cannot be None for LRUCache")
+        if not ttl:
+            raise TypeError("TTL cannot be None for LRUCache")
         self.capacity = capacity
         self.ttl = ttl
         self.cache = LastUpdatedDict()
@@ -50,7 +55,7 @@ class LRUCache(object):
 class RedisProxy(object):
     """Lightweight Read Cache for Redis GET commands"""
 
-    def __init__(self, capacity, ttl, timeout=30):
+    def __init__(self, capacity=100, ttl=7200, timeout=30):
         """Settings are configurable for Redis Proxy:
             :param capacity (int): number of keys to hold in cache
             :param ttl (int): # of seconds that a key can live in cache

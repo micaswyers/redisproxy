@@ -35,6 +35,16 @@ class TestLastUpdatedDict(unittest.TestCase):
 
 class TestLRUCache(unittest.TestCase):
 
+    def test_lru_cache_no_args(self):
+        """Test instantiating LRUCache w/o capacity & ttl raises TypeError"""
+
+        with self.assertRaises(TypeError):
+            LRUCache(ttl=7200)
+
+        with self.assertRaises(TypeError):
+            LRUCache(capacity=100)
+
+
     def test_lru_set_capacity(self):
         """Test that inserting data obeys capacity limit"""
 
@@ -58,7 +68,7 @@ class TestLRUCache(unittest.TestCase):
 
         dt_mock.now.return_value = "2017-09-25 00:00:00"
 
-        testcache = LRUCache()
+        testcache = LRUCache(capacity=100, ttl=7200)
         testcache.set('radish', 'moo')
         val, timestamp = testcache.cache['radish']
         self.assertEqual(timestamp, "2017-09-25 00:00:00")
@@ -66,7 +76,7 @@ class TestLRUCache(unittest.TestCase):
     def test_get_not_in_cache_returns_None(self):
         """Test that getting a nonexistent value returns None"""
 
-        testcache = LRUCache()
+        testcache = LRUCache(capacity=100, ttl=7200)
         testcache.set('radish', 'moo')
         self.assertIsNone(testcache.get('ddeok'))
 
@@ -82,7 +92,7 @@ class TestLRUCache(unittest.TestCase):
     def test_get_in_cache_unexpired(self):
         """Test that an unexpired cached value is returned"""
 
-        testcache = LRUCache(ttl=86400)
+        testcache = LRUCache(capacity=100, ttl=86400)
         testcache.set('radish', 'moo')
         self.assertEqual(testcache.get('radish'), 'moo')
 
