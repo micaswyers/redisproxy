@@ -4,9 +4,7 @@ from collections import OrderedDict
 import select
 import socket
 
-
 MAX_LISTENS = 5
-SOCKET_LIST = []
 
 
 class LastUpdatedDict(OrderedDict):
@@ -71,10 +69,16 @@ class RedisProxy(object):
     ):
         """Settings are configurable for Redis Proxy:
             :param host_addr (str): IP address of backing Redis instance
+            :param port (int): Port for Redis socket
             :param capacity (int): number of keys to hold in cache
             :param ttl (int): # of seconds that a key can live in cache
             :param timeout (int), seconds after which to timeout network request
         """
+
+        self.cache = LRUCache(capacity, ttl)
+
+        self.socket_list = []
+        self.max_listens = MAX_LISTENS
 
         if not host_addr:
             host_addr = ''
@@ -85,7 +89,51 @@ class RedisProxy(object):
         self.redis_socket.connect((host_addr, port))
         print "Connected to Redis on %s:%s" % (host_addr, port)
 
-        self.cache = LRUCache(capacity, ttl)
+        # Open Client socket
+        self.client_socket = self._open_connection(host='', port=5555)
+        self.socket_list.append(self.client_socket)
+
+
+    def run(self):
+        running = True
+        while running:
+            # Listen for input sources (Redis & any client)
+            in_ready, out_ready, err_ready = select.select(
+                self.socket_list,
+                [],
+                [],
+                0,
+            )
+            for src in in_ready:
+                # New client connection, creates new client socket
+                if src == self.client_socket:
+                    new_sock, addr = self.client_socket.accept()
+                    new_sock.sendall(
+                        "Connected to RedisProxy\nYou can send GET {key} commands to the proxy\n",
+                    )
+                    self.socket_list.append(new_sock)
+                # Input from a client connection that we've already seen
+                else:
+                    data = src.recv(4096).strip()
+                    if data:
+                        data = data.split()
+                        if len(data) != 2 or data[0] != "GET":
+                            src.sendall("Please use Redis 'GET key' command format\n\r")
+                            continue
+                        ret_val = self.get(data[1])
+                        if ret_val is None:
+                            src.sendall("Nothing exists for key %s in Redis\n\r" % (data[1]))
+                            continue
+                        ret_val = ret_val + "\n\r"
+                        src.sendall(ret_val.encode('utf-8'))
+                    else:
+                        if src in self.socket_list:
+                            self.socket_list.remove(src)
+                            print "Client connection closed"
+                        else:
+                            continue
+        self.redis_proxy.close()
+        self.client_socket.close()
 
     def get(self, key):
         """Takes in a key, checks cache then backing Redis for value.
@@ -114,68 +162,26 @@ class RedisProxy(object):
 
         return redis_val
 
-def open_connection(host=None, port=None, timeout=30):
+    def _open_connection(self, host=None, port=None, timeout=30):
 
-    if not host:
-        host = socket.gethostname()
-    if not port:
-        raise TypeError("No port for socket passed in")
-    try:
-        my_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        my_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        my_socket.settimeout(timeout)
-        my_socket.bind((host, port))
-        my_socket.listen(MAX_LISTENS)
-        print "Listening on %s:%s" % (host, port)
-    except socket.error, (value, msg):
-        if my_socket:
-                my_socket.close()
-        print "Could not open socket: ", msg
-        sys.exit(1)
-    return my_socket
+        if not host:
+            host = socket.gethostname()
+        if not port:
+            raise TypeError("No port for listening socket passed in")
+        try:
+            my_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            my_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            my_socket.settimeout(timeout)
+            my_socket.bind((host, port))
+            my_socket.listen(MAX_LISTENS)
+            print "Listening on %s:%s" % (host, port)
+        except socket.error, (value, msg):
+            if my_socket:
+                    my_socket.close()
+            print "Could not open socket: ", msg
+            sys.exit(1)
+        return my_socket
 
-
-def run_server(host_addr, ttl, capacity):
-    redis_proxy = RedisProxy(host_addr=host_addr, ttl=ttl, capacity=capacity)
-
-    client_socket = open_connection(host='', port=5555)
-    SOCKET_LIST.append(client_socket)
-
-    running = True
-    while running:
-        # Listen for input sources (Redis & any client)
-        in_ready, out_ready, err_ready = select.select(
-            SOCKET_LIST,
-            [],
-            [],
-            0,
-        )
-        for src in in_ready:
-            # New client connection, creates new client socket
-            if src == client_socket:
-                sock, addr = client_socket.accept()
-                sock.sendall("Connected to RedisProxy\nYou can send GET {key} commands to the proxy\n")
-                SOCKET_LIST.append(sock)
-            # Input from a client connection that we've already seen
-            else:
-                data = src.recv(4096).strip()
-                if data:
-                    data = data.split()
-                    if len(data) != 2 or data[0] != "GET":
-                        src.sendall("Please use Redis 'GET key' command format\n\r")
-                        continue
-                    else:
-                        ret_val = redis_proxy.get(data[1])
-                        ret_val = ret_val + "\n\r"
-                        src.sendall(ret_val.encode('utf-8'))
-                else:
-                    if src in SOCKET_LIST:
-                        SOCKET_LIST.remove(src)
-                        print "Client connection closed"
-                    else:
-                        continue
-    redis_proxy.close()
-    client_socket.close()
 
 if __name__ == "__main__":
 
@@ -212,4 +218,4 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    run_server(host_addr=args.addr, ttl=args.ttl, capacity=args.capacity)
+    RedisProxy(host_addr=args.addr, ttl=args.ttl, capacity=args.capacity).run()
