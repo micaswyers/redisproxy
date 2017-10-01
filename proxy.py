@@ -91,6 +91,7 @@ class RedisProxy(object):
         # Open Client socket
         self.client_socket = self._open_client_connection(host='', port=5555)
         self.socket_list.append(self.client_socket)
+        print "Running RedisProxy. Use CTRL-C to stop."
 
 
     def _open_redis_connection(self, host_addr, port, timeout):
@@ -104,43 +105,48 @@ class RedisProxy(object):
         running = True
         while running:
             # Listen for input sources (Redis & any client)
-            in_ready, out_ready, err_ready = select.select(
-                self.socket_list,
-                [],
-                [],
-                0,
-            )
-            for src in in_ready:
-                # New client connection, creates new client socket
-                if src == self.client_socket:
-                    new_sock, addr = self.client_socket.accept()
-                    new_sock.sendall(
-                        "Connected to RedisProxy\nYou can send GET {key} commands to the proxy\n",
-                    )
-                    self.socket_list.append(new_sock)
-                # Input from a client connection that we've already seen
-                else:
-                    data = src.recv(4096).strip()
-                    if data:
-                        data = data.split()
-                        if len(data) != 2 or data[0] != "GET":
-                            src.sendall("Please use Redis 'GET key' command format\n\r")
-                            continue
-                        ret_val = self.get(data[1])
-                        if ret_val is None:
-                            src.sendall("Nothing exists for key %s in Redis\n\r" % (data[1]))
-                            continue
-                        ret_val = ret_val + "\n\r"
-                        src.sendall(ret_val.encode('utf-8'))
+            try:
+                in_ready, out_ready, err_ready = select.select(
+                    self.socket_list,
+                    [],
+                    [],
+                    0,
+                )
+                for src in in_ready:
+                    # New client connection, creates new client socket
+                    if src == self.client_socket:
+                        new_sock, addr = self.client_socket.accept()
+                        new_sock.sendall(
+                            "Connected to RedisProxy\nYou can send GET {key} commands to the proxy\nUse QUIT to end connection\n",
+                        )
+                        self.socket_list.append(new_sock)
+                    # Input from a client connection that we've already seen
                     else:
-                        if src in self.socket_list:
-                            self.socket_list.remove(src)
-                            print "Client connection closed"
+                        data = src.recv(4096).strip()
+                        if data != "QUIT":
+                            data = data.split()
+                            if len(data) != 2 or data[0] != "GET":
+                                src.sendall("Please use Redis 'GET key' command format\n\r")
+                                continue
+                            ret_val = self.get(data[1])
+                            if ret_val is None:
+                                src.sendall("Nothing exists for key %s in Redis\n\r" % (data[1]))
+                                continue
+                            ret_val = ret_val + "\n\r"
+                            src.sendall(ret_val.encode('utf-8'))
                         else:
-                            continue
-        # FIXME: We don't get here
+                            if src in self.socket_list:
+                                src.sendall("Bye-bye!\n")
+                                self.socket_list.remove(src)
+                                src.close()
+                                print "Client connection closed"
+
+            except KeyboardInterrupt:
+                print "Shutting down RedisProxy"
+                running = False
         self.redis_socket.close()
         self.client_socket.close()
+        print "Done"
 
     def get(self, key):
         """Takes in a key, checks cache then backing Redis for value.
