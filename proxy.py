@@ -132,7 +132,7 @@ class RedisProxy(object):
                             print "Client connection closed"
                         else:
                             continue
-        self.redis_proxy.close()
+        self.redis_socket.close()
         self.client_socket.close()
 
     def get(self, key):

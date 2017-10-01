@@ -42,7 +42,6 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
         self.request.close()
 
 
-
 class ThreadedTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
     pass
 
