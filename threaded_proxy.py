@@ -122,6 +122,7 @@ class RedisProxy(object):
             host_addr = ''
 
         self.redis_socket = self._open_redis_connection(host_addr, port, timeout)
+        print "Running RedisProxy. Use CTRL-C to stop."
 
 
     def _open_redis_connection(self, host_addr, port, timeout):
@@ -235,4 +236,5 @@ if __name__ == "__main__":
         except KeyboardInterrupt:
             server.shutdown()
             server.server_close()
+            print "RedisProxy is shutdown. Exiting."
             sys.exit(1)
