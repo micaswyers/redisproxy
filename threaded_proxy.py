@@ -4,6 +4,7 @@ from collections import OrderedDict
 import socket
 import SocketServer
 import sys
+from threading import RLock
 import threading
 import time
 
@@ -66,34 +67,40 @@ class LRUCache(object):
             raise TypeError("TTL cannot be None for LRUCache")
         self.capacity = capacity
         self.ttl = ttl
-        self.cache = LastUpdatedDict()
+        self.lock = RLock()
+        self.data = LastUpdatedDict()
 
 
     def get(self, key):
-        """Checks if key is in cache
+        """Checks if key is in data
             :param key (str)
             :returns: val (str) if exists or None
         """
 
-        if self.cache.get(key) is not None:
-            val, time_added = self.cache.pop(key)
-            if (datetime.now() - time_added).total_seconds() >= self.ttl:
+        with self.lock:
+            if self.data.get(key) is not None:
+                val, time_added = self.data.data(key)
+                if (datetime.now() - time_added).total_seconds() >= self.ttl:
+                    return None
+                self.data[key] = (val, datetime.now())
+                return val
+            else:
                 return None
-            self.cache[key] = (val, datetime.now())
-            return val
-        else:
-            return None
 
 
     def set(self, key, val):
-        """Sets key-val pair in self.cache
+        """Sets key-val pair in self.data
             :param key (str):
             :param val (str):
         """
 
-        if len(self.cache) >= self.capacity:
-            self.cache.popitem(last=False)
-        self.cache[key] = (val, datetime.now())
+        with self.lock:
+            if len(self.data) >= self.capacity:
+                self.data.popitem(last=False)
+            self.data[key] = (val, datetime.now())
+
+    def __repr__(self):
+        return "%s(%s, %s)" % (self.__class__.__name__, self.capacity, self.data)
 
 
 class RedisProxy(object):
