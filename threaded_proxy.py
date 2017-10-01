@@ -15,17 +15,12 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
     def handle(self):
         data = "You are connected to the RedisProxy. Type QUIT to close connection\n"
         self.request.sendall(data)
-        # FIXME Why won't this break out of the loop?
-        """
-        while data != "QUIT\n":
-            data = self.request.recv(1024)
-        """
         while True:
-            data = self.request.recv(1024)
+            data = self.request.recv(1024).strip()
             if data:
-                if data == "QUIT\n":
+                if data == "QUIT":
                     break
-                data = data.strip().split()
+                data = data.split()
                 if len(data) != 2 or data[0] != "GET":
                     self.request.sendall("Please use Redis 'GET key' command format\n\r")
                     continue
@@ -126,11 +121,17 @@ class RedisProxy(object):
         if not host_addr:
             host_addr = ''
 
-        # Open Redis connection
-        self.redis_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.redis_socket.settimeout(timeout)
-        self.redis_socket.connect((host_addr, port))
+        self.redis_socket = self._open_redis_connection(host_addr, port, timeout)
+
+
+    def _open_redis_connection(self, host_addr, port, timeout):
+        """Open Redis connection"""
+
+        redis_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        redis_socket.settimeout(timeout)
+        redis_socket.connect((host_addr, port))
         print "Connected to Redis on %s:%s" % (host_addr, port)
+        return redis_socket
 
 
     def get(self, key):
