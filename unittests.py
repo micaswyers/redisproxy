@@ -104,8 +104,8 @@ class RedisProxyTests(unittest.TestCase):
     def setUp(self, patched_redis, patched_client):
         """Sets up a test proxy with mocked Redis and client connections"""
 
-        self.redis_socket = mock.MagicMock()
-        self.client_socket = mock.MagicMock()
+        patched_redis.return_value = mock.MagicMock()
+
         self.testproxy = RedisProxy(capacity=5, ttl=7200)
         self.testproxy.cache.set('foo', 'bar')
 
