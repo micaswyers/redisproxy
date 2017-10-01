@@ -99,42 +99,43 @@ class TestLRUCache(unittest.TestCase):
 
 class RedisProxyTests(unittest.TestCase):
 
-    def setUp(self):
+    @mock.patch('proxy.RedisProxy._open_client_connection')
+    @mock.patch('proxy.RedisProxy._open_redis_connection')
+    def setUp(self, patched_redis, patched_client):
+        """Sets up a test proxy with mocked Redis and client connections"""
+
+        self.redis_socket = mock.MagicMock()
+        self.client_socket = mock.MagicMock()
         self.testproxy = RedisProxy(capacity=5, ttl=7200)
         self.testproxy.cache.set('foo', 'bar')
 
     def test_cached_val_returned(self):
         """Test that a value in the proxy's cache is returned, w/o calling Redis"""
 
-        socket_mock = mock.MagicMock()
-        socket_mock.recv.return_value = "$3\r\nbar\r\n"
-        self.testproxy.redis_socket = socket_mock
+        self.testproxy.redis_socket.recv.return_value = "$3\r\nbar\r\n"
 
         cached_val = self.testproxy.get('foo')
 
         self.assertEqual(cached_val, 'bar')
-        socket_mock.sendall.assert_not_called()
-        socket_mock.recv.assert_not_called()
+        self.testproxy.redis_socket.sendall.assert_not_called()
+        self.testproxy.redis_socket.recv.assert_not_called()
 
 
     def test_nil_string_returned_from_Redis(self):
         """Test that a nil string from Redis cause proxy to return None"""
 
-        socket_mock = mock.MagicMock()
-        socket_mock.recv.return_value = "$-1\r\n"
-        self.testproxy.redis_socket = socket_mock
+        # Mocking out a nil return from backing Redis
+        self.testproxy.redis_socket.recv.return_value = "$-1\r\n"
 
         self.assertIsNone(self.testproxy.get('blarf'))
-        socket_mock.sendall.assert_called()
-        socket_mock.recv.assert_called()
+        self.testproxy.redis_socket.sendall.assert_called()
+        self.testproxy.redis_socket.recv.assert_called()
 
 
     def test_cache_new_data(self):
         """Test that data fetched from Redis is put into the proxy's cache"""
 
-        socket_mock = mock.MagicMock()
-        socket_mock.recv.return_value = "$5\r\nblarf\r\n"
-        self.testproxy.redis_socket = socket_mock
+        self.testproxy.redis_socket.recv.return_value = "$5\r\nblarf\r\n"
 
         ret_val = self.testproxy.get('baz')
         self.assertEqual(ret_val, self.testproxy.cache.get('baz'))

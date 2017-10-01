@@ -79,7 +79,7 @@ class LRUCache(object):
 
         with self.lock:
             if self.data.get(key) is not None:
-                val, time_added = self.data.data(key)
+                val, time_added = self.data.get(key)
                 if (datetime.now() - time_added).total_seconds() >= self.ttl:
                     return None
                 self.data[key] = (val, datetime.now())

@@ -3,7 +3,7 @@ from datetime import datetime
 from collections import OrderedDict
 import select
 import socket
-import sys
+
 
 MAX_LISTENS = 5
 
@@ -85,15 +85,20 @@ class RedisProxy(object):
             host_addr = ''
 
         # Open Redis connection
-        self.redis_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.redis_socket.settimeout(timeout)
-        self.redis_socket.connect((host_addr, port))
-        print "Connected to Redis on %s:%s" % (host_addr, port)
+        self.redis_socket = self._open_redis_connection(host_addr, port, timeout)
+        self.socket_list.append(self.redis_socket)
 
         # Open Client socket
-        self.client_socket = self._open_connection(host='', port=5555)
+        self.client_socket = self._open_client_connection(host='', port=5555)
         self.socket_list.append(self.client_socket)
 
+
+    def _open_redis_connection(self, host_addr, port, timeout):
+        redis_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        redis_socket.settimeout(timeout)
+        redis_socket.connect((host_addr, port))
+        print "Connected to Redis on %s:%s" % (host_addr, port)
+        return redis_socket
 
     def run(self):
         running = True
@@ -133,6 +138,7 @@ class RedisProxy(object):
                             print "Client connection closed"
                         else:
                             continue
+        # FIXME: We don't get here
         self.redis_socket.close()
         self.client_socket.close()
 
@@ -163,7 +169,7 @@ class RedisProxy(object):
 
         return redis_val
 
-    def _open_connection(self, host=None, port=None, timeout=30):
+    def _open_client_connection(self, host=None, port=None, timeout=30):
 
         if not host:
             host = socket.gethostname()
@@ -180,7 +186,6 @@ class RedisProxy(object):
             if my_socket:
                     my_socket.close()
             print "Could not open socket: ", msg
-            sys.exit(1)
         return my_socket
 
 
