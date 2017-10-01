@@ -178,7 +178,7 @@ class RedisProxy(object):
     def _open_client_connection(self, host=None, port=None, timeout=30):
 
         if not host:
-            host = socket.gethostname()
+            host = 'localhost'
         if not port:
             raise TypeError("No port for listening socket passed in")
         try:

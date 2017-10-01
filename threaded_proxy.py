@@ -220,7 +220,7 @@ if __name__ == "__main__":
 
     redis_proxy = RedisProxy(host_addr=args.addr, ttl=args.ttl, capacity=args.capacity)
 
-    CLIENT_HOST, CLIENT_PORT = "localhost", 0
+    CLIENT_HOST, CLIENT_PORT = "localhost", 5555
     server = ThreadedTCPServer((CLIENT_HOST, CLIENT_PORT), ThreadedTCPRequestHandler)
     server.proxy = redis_proxy
     ip, port = server.server_address
