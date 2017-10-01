@@ -1,0 +1,8 @@
+readcache:
+    build: .
+    dockerfile: Dockerfile
+    links:
+        - redis
+    tty: true
+redis:
+    image: redis
