@@ -123,15 +123,15 @@ GET prénom
 Mireille
 ```
 - Change the value for the key in backing Redis (with `redis-cli`, perhaps): `SET prénom Dagobert`
-- Ask the proxy for another key (The proxy's cache now has two items in it.): 
-```
-GET boulot
-dentiste
-```
 - Ask the proxy for a key that you know is in Redis. (The first key is still in the cache.):
 ```
 GET prénom
 Mireille
+```
+- Ask the proxy for another key (The proxy's cache now has two items in it.): 
+```
+GET boulot
+dentiste
 ```
 - Ask the proxy for another key (This will evict the first key.):
 ```
