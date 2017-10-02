@@ -24,21 +24,11 @@ At a high level, the proxy exists as an intermediate layer between the client an
 
 # Running the proxy: Two ways!
 ## On your machine
-Make sure the backing Redis-server is running
-    ```sh
-    redis-server
-    ```
-
-Run the non-threaded or threaded proxy, dependent on your preference: `python proxy.py` OR `python threaded_proxy.py`
-
-(You can also run the proxy with configs: `sh python redisproxy.py --addr='localhost' --ttl=7200 --capacity=1000`)
-
-Start up a client, such as using nc or telnet, in another window/tab:
-    ```sh
-    nc localhost 5555
-    ```
-
-Once the client connects, you can pass Redis GET commands to the proxy:
+This assumes that you have cloned the git repo and have the requirements installed:
+- Make sure the backing Redis-server is running: `sh redis-server`
+- Run the non-threaded or threaded proxy, dependent on your preference: `python proxy.py` OR `python threaded_proxy.py` (You can also run the proxy with configs: `sh python redisproxy.py --addr='localhost' --ttl=7200 --capacity=1000`)
+- Start up a client, such as using nc or telnet, in another window/tab: `sh nc localhost 5555`
+- Once the client connects, you can pass Redis GET commands to the proxy:
 ```sh
 nc localhost 5555
 You are connected to the RedisProxy. Type QUIT to close connection
