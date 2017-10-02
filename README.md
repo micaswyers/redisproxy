@@ -92,7 +92,7 @@ Bye-bye!
 
 Note: Multiple clients can connect at once time to the proxy. To test this, open up two `netcat` clients and send GET commands to the proxy.
 
-### Manual testing of LRU eviction & TTL:
+### Manual testing of TTL & LRU eviction:
 To test the TTL:
 - Run the threaded/non-threaded proxy with a relatively low ttl: `python proxy.py --ttl=10`
 - In a new tab, open a client: `nc localhost 5555`
@@ -101,7 +101,7 @@ To test the TTL:
 GET prénom
 Mireille
 ```
-- Work quickly: change the value for the key in backing Redis (with `redis-cli`, perhaps): `SET prénom Mireille`
+- Work quickly: change the value for the key in backing Redis (with `redis-cli`, perhaps): `SET prénom Dagobert`
 - Work quickly: Ask the proxy for the same key and confirm that it has not yet expired (Will not be what you just set it to):
 ```
 GET prénom
@@ -113,6 +113,37 @@ Mireille
 GET prénom
 Dagobert
 ```
+
+To test the LRU eviction:
+- Run the threaded/non-threaded proxy with a small capacity: `python threaded_proxy.py --capacity=2`
+- In a new tab, open a client: `nc localhost 5555`
+- Ask the proxy for a key that you know is in Redis:
+```
+GET prénom
+Mireille
+```
+- Change the value for the key in backing Redis (with `redis-cli`, perhaps): `SET prénom Dagobert`
+- Ask the proxy for another key (The proxy's cache now has two items in it.): 
+```
+GET boulot
+dentiste
+```
+- Ask the proxy for a key that you know is in Redis. (The first key is still in the cache.):
+```
+GET prénom
+Mireille
+```
+- Ask the proxy for another key (This will evict the first key.):
+```
+GET âge
+400
+```
+- Ask the proxy for the first key. Its value will have changed:
+```
+GET prénom
+Dagobert
+```
+
 
 
 # Timing Breakdown
