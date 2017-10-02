@@ -133,7 +133,7 @@ class RedisProxy(object):
                                 src.sendall("Nothing exists for key %s in Redis\n\r" % (data[1]))
                                 continue
                             ret_val = ret_val + "\n\r"
-                            src.sendall(ret_val.encode('utf-8'))
+                            src.sendall(ret_val)
                         else:
                             if src in self.socket_list:
                                 src.sendall("Bye-bye!\n")
@@ -160,9 +160,9 @@ class RedisProxy(object):
         if cached_val:
             return cached_val
         get_str = "*2\r\n$3\r\nGET\r\n$%s\r\n%s\r\n" % (len(key), key)
-        self.redis_socket.sendall(get_str.encode('utf-8'))
+        self.redis_socket.sendall(get_str)
 
-        resp = self.redis_socket.recv(4096).decode('utf-8')
+        resp = self.redis_socket.recv(4096)
         # If Redis responds w/ a nil bulk string, return None to client
         if resp == "$-1\r\n":
             return None
